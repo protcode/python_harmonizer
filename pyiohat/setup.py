@@ -1,11 +1,7 @@
-#!/usr/bin/env python3
-from setuptools import setup, find_packages, find_namespace_packages
-
-
 install_requires = open("requirements.txt").read().splitlines()
 setup(
-    name="frag_manip",
-    description="Capacity to correct for s2i interference and isotopic carry over in reporter ions",
+    name="protein_harmony",
+    description="pyiohat extension",
     long_description="correction of reporter ions based on their measured s2i or interfering peak",
     author="Toby J. Mathieson, Christian F, Tristan",
     author_email="toby.j.mathieson@gsk.com",
