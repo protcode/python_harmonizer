@@ -36,7 +36,7 @@ def _get_single_spec_df(reference_dict, spectrum):
         r"(?<=title=)(.+)", spec_level_info
     ).group(1)
     spec_level_dict["charge"] = re.search(r"(?<=charge=)(\d+)", spec_level_info).group()
-    spec_level_dict["raw_data_location"] = 'bivs'
+    spec_level_dict["raw_data_location"] = 'here'
     try:
         spec_level_dict["spectrum_id"] = int(re.search(
         r"(?<=title=)msmsid%3aF(\d{6})", spec_level_info
