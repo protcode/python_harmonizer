@@ -88,7 +88,7 @@ class BaseParser:
                 else:
                     precursor_mz = float(row["precursor_mz"])
                 rt_lookup[int(row["spectrum_id"])][rt] = [
-                    row["lineage_root"],
+                    row["lineage_root"] if "lineage_root" in row else '',
                     precursor_mz,
                 ]
         return rt_lookup

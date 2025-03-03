@@ -32,17 +32,26 @@ def _get_single_spec_df(reference_dict, spectrum):
     spec_records = []
     spec_level_dict = reference_dict.copy()
     query, spec_level_info = spectrum[:2]
-
     spec_level_dict["spectrum_title"] = re.search(
         r"(?<=title=)(.+)", spec_level_info
-    ).group()
+    ).group(1)
     spec_level_dict["charge"] = re.search(r"(?<=charge=)(\d+)", spec_level_info).group()
-    spec_level_dict["spectrum_id"] = re.search(
-        r"(?<=scans=)(\d+)", spec_level_info
-    ).group()
-    spec_level_dict["retention_time_seconds"] = re.search(
-        r"(?<=rtinseconds=)(\d+\.\d+)", spec_level_info
-    ).group()
+    spec_level_dict["raw_data_location"] = 'bivs'
+    try:
+        spec_level_dict["spectrum_id"] = int(re.search(
+        r"(?<=title=)msmsid%3aF(\d{6})", spec_level_info
+        ).group(1))
+    except AttributeError:
+        spec_level_dict["spectrum_id"] = re.search(
+            r"(?<=scans=)(\d+)", spec_level_info
+        ).group(1)
+    try:
+        spec_level_dict["retention_time_seconds"] = re.search(
+            r"(?<=title=).+start%3a(\d+%2e\d+)%2c", spec_level_info
+        ).group(1).replace("%2e", '.')
+    except AttributeError:
+        spec_level_dict["retention_time_seconds"] = re.search(
+        r"(?<=rtinseconds=)(\d+\.\d+)", spec_level_info).group()
 
     # Iterate children
     for psm in spectrum[2]:

@@ -180,6 +180,7 @@ def get_isotopologue_accuracy(composition, charge, exp_mz):
     isotope_masses = None
     isotope_probs = None
     replaced_composition = composition
+    exp_mz = float(exp_mz)
     static_isotopes = re.findall(r"(?<=\))(\d+)(\w+)(?:\()(\d+)", composition)
     if len(static_isotopes) != 0:
         atom_counts = []
@@ -222,7 +223,7 @@ def get_isotopologue_accuracy(composition, charge, exp_mz):
     # Report only most accurate mass
     isotopologue_mz = min(
         isotopologue_mzs,
-        key=lambda x: abs(exp_mz - x),
-    )
+        key=lambda x: abs(exp_mz) - x)
+
     isotopologue_acc = (exp_mz - isotopologue_mz) / isotopologue_mz * 1e6
     return isotopologue_acc

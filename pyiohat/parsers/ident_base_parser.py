@@ -119,11 +119,20 @@ class IdentBaseParser(BaseParser):
         """
         peptide_mapper = UPeptideMapper(self.params["database"])
         mapped_peptides = peptide_mapper.map_peptides(self.df["sequence"].tolist())
+        new_data = []
+        for pep, data in mapped_peptides.items():
 
-        peptide_mappings = [
-            merge_and_join_dicts(mapped_peptides[seq], self.DELIMITER)
-            for seq in self.df["sequence"]
-        ]
+            for x in data:
+                if len(x['id'].split('|')) > 1:
+                    myid = '|'.join(x['id'].split('|')[:2])
+                else:
+                    myid = x['id']
+                newd = x.copy()
+                newd['id'] = myid
+                newd['sequence'] = pep
+                new_data.append(newd)
+        mapped_frame = pd.DataFrame(new_data)
+        del mapped_peptides
 
         columns_translations = {
             "start": "sequence_start",
@@ -132,16 +141,13 @@ class IdentBaseParser(BaseParser):
             "id": "protein_id",
             "pre": "sequence_pre_aa",
         }
-        new_columns = pd.DataFrame(peptide_mappings)
-        new_columns.rename(columns=columns_translations, inplace=True)
+        mapped_frame.rename(columns=columns_translations, inplace=True)
+        self.df = self.df.merge(mapped_frame, on='sequence', how='left')
 
-        self.df.loc[:, new_columns.columns] = new_columns.values
-        new_columns = new_columns.dropna(axis=0, how="all")
-        if len(new_columns) != len(self.df):
-            logger.warning(
-                f"{len(self.df)-len(new_columns)} PSMs were dropped because their respective sequences could not be mapped."
+        logger.warning(
+                f"{self.df['protein_id'].isna().sum()} PSMs were dropped because their respective sequences could not be mapped."
             )
-        self.df = self.df.iloc[new_columns.index, :].reset_index(drop=True)
+        self.df.dropna(subset='protein_id', inplace=True)
 
     def check_enzyme_specificity(self):
         """Check consistency of N/C-terminal cleavage sites.
@@ -226,6 +232,11 @@ class IdentBaseParser(BaseParser):
         )
         self.df.loc[:, "chemical_composition"] = compositions
         self.df.loc[:, "ucalc_mass"] = mono_masses
+        logger.warning(f"excluding values {self.df['chemical_composition'].isna().sum()} from frame ")
+        for a in self.df[self.df['chemical_composition'].isna()].iterrows():
+            logger.debug(f"values: {a[0]} {a[1]}")
+
+        self.df.dropna(subset="chemical_composition", inplace=True)
 
         with mp.Pool(
             self.params.get("cpus", mp.cpu_count() - 1),
@@ -276,25 +287,34 @@ class IdentBaseParser(BaseParser):
         and spectrum titles are added.
         Operations are performed inplace on self.df
         """
-        rt_lookup = self._read_meta_info_lookup_file()
-        self.df["spectrum_id"] = self.df["spectrum_id"].astype(int)
+       #rt_lookup = self._read_meta_info_lookup_file()
+        rt_lookup_frame = pd.read_csv(self.params["rt_pickle_name"])
+        minute_mask = rt_lookup_frame["rt_unit"].str.contains('min')
+        rt_lookup_frame["retention_time_seconds"] = 0
+        rt_lookup_frame.loc[minute_mask, 'retention_time_seconds'] = rt_lookup_frame[minute_mask]['rt'] * 60
+        ignore_rt = True
         if self.style in ("comet_style_1", "omssa_style_1"):
+            ignore_rt =True
+        self.df["spectrum_id"] = self.df["spectrum_id"].astype(int)
+        if ignore_rt:
             logger.warning(
                 "This engine does not provide retention time information. Grouping only by Spectrum ID. This may cause problems when working with multi-file inputs."
             )
-            for name, grp in self.df.groupby("spectrum_id"):
-                mappable_within_precision = list(rt_lookup[name].keys())
-                if len(mappable_within_precision) == 1:
-                    self.df.loc[
-                        grp.index,
-                        ("raw_data_location", "exp_mz", "retention_time_seconds"),
-                    ] = rt_lookup[name][mappable_within_precision[0]] + [
-                        mappable_within_precision[0]
-                    ]
-                else:
-                    logger.error(
-                        f"Could not uniquely assign meta data to spectrum id {name}."
-                    )
+            self.df.merge(rt_lookup_frame[['spectrum_id', 'retention_time_seconds', 'precursor_mz']].rename(columns=[dict(precursor_mz='exp_mz')]), on='spectrum_id')
+
+            # for name, grp in self.df.groupby("spectrum_id"):
+            #     mappable_within_precision = list(rt_lookup[name].keys())
+            #     if len(mappable_within_precision) == 1:
+            #         self.df.loc[
+            #             grp.index,
+            #             ("raw_data_location", "exp_mz", "retention_time_seconds"),
+            #         ] = rt_lookup[name][mappable_within_precision[0]] + [
+            #             mappable_within_precision[0]
+            #         ]
+            #     else:
+            #         logger.error(
+            #             f"Could not uniquely assign meta data to spectrum id {name}."
+            #         )
         else:
             self.df["retention_time_seconds"] = self.df[
                 "retention_time_seconds"
@@ -317,7 +337,6 @@ class IdentBaseParser(BaseParser):
                     logger.error(
                         f"Could not uniquely assign meta data to spectrum id, retention time {name}."
                     )
-
         self.df.loc[:, "spectrum_title"] = (
             self.df["raw_data_location"]
             + "."
@@ -374,7 +393,7 @@ class IdentBaseParser(BaseParser):
         self.clean_up_modifications()
         self.assert_only_iupac_and_missing_aas()
         self.add_protein_ids()
-        self.get_meta_info()
+        #self.get_meta_info()
         self.calc_masses_offsets_and_composition()
         self.check_enzyme_specificity()
         self.add_ranks()
