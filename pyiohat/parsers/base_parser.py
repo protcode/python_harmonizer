@@ -104,7 +104,7 @@ class BaseParser:
         # Set missing columns to None and reorder columns in standardized manner
         col_order = pd.Series(self.required_headers.keys())
         new_cols = col_order[~col_order.isin(self.df.columns)].to_list()
-        self.df.loc[:, new_cols] = pd.NA
+        self.df.loc[:, new_cols] = np.nan
         self.df = self.df.loc[
             :,
             col_order.tolist()

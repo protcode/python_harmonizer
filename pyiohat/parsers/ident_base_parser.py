@@ -51,6 +51,7 @@ class IdentBaseParser(BaseParser):
             "retention_time_seconds": None,
         }
         self.required_headers = self._load_model("ident_parser_model.json")
+        print(f"requireqd heaeders {self.required_headers}")
         self.col_order = pd.Series(self.required_headers.keys())
 
     def _calc_mz(self, mass, charge):
@@ -289,9 +290,10 @@ class IdentBaseParser(BaseParser):
         """
        #rt_lookup = self._read_meta_info_lookup_file()
         rt_lookup_frame = pd.read_csv(self.params["rt_pickle_name"])
-        minute_mask = rt_lookup_frame["rt_unit"].str.contains('min')
-        rt_lookup_frame["retention_time_seconds"] = 0
-        rt_lookup_frame.loc[minute_mask, 'retention_time_seconds'] = rt_lookup_frame[minute_mask]['rt'] * 60
+        # minute_mask = rt_lookup_frame["rt_unit"].str.contains('min')
+        # # rt_lookup_frame["retention_time_seconds"] = 0
+        # # rt_lookup_frame.loc[minute_mask, 'retention_time_seconds'] = rt_lookup_frame[minute_mask]['rt'] * 60
+        # # print(rt_lookup_frame['retention_time_seconds'])
         ignore_rt = True
         if self.style in ("comet_style_1", "omssa_style_1"):
             ignore_rt =True
@@ -300,8 +302,7 @@ class IdentBaseParser(BaseParser):
             logger.warning(
                 "This engine does not provide retention time information. Grouping only by Spectrum ID. This may cause problems when working with multi-file inputs."
             )
-            self.df.merge(rt_lookup_frame[['spectrum_id', 'retention_time_seconds', 'precursor_mz']].rename(columns=[dict(precursor_mz='exp_mz')]), on='spectrum_id')
-
+            self.df = self.df.merge(rt_lookup_frame[['spectrum_id',  'precursor_mz']].rename(columns=dict(precursor_mz='exp_mz')), on='spectrum_id')
             # for name, grp in self.df.groupby("spectrum_id"):
             #     mappable_within_precision = list(rt_lookup[name].keys())
             #     if len(mappable_within_precision) == 1:
@@ -319,6 +320,7 @@ class IdentBaseParser(BaseParser):
             self.df["retention_time_seconds"] = self.df[
                 "retention_time_seconds"
             ].astype(float)
+            rt_lookup = self._read_meta_info_lookup_file()
             for name, grp in self.df.groupby(["spectrum_id", "retention_time_seconds"]):
                 meta_rts = rt_lookup[name[0]].keys()
                 mappable_within_precision = [
@@ -393,7 +395,7 @@ class IdentBaseParser(BaseParser):
         self.clean_up_modifications()
         self.assert_only_iupac_and_missing_aas()
         self.add_protein_ids()
-        #self.get_meta_info()
+        self.get_meta_info()
         self.calc_masses_offsets_and_composition()
         self.check_enzyme_specificity()
         self.add_ranks()

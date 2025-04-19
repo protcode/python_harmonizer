@@ -94,6 +94,11 @@
     "description": "Numer of missed enzymatic cleavages",
     "dtype": "Int32"
   },
+    {
+    "name": "query",
+    "description": "Mascot assigned query identifier",
+    "dtype": "Int32"
+  },
   {
     "name": "search_engine",
     "description": "Name and version of the utilized search engine",

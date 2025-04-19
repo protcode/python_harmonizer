@@ -36,7 +36,7 @@ def _get_single_spec_df(reference_dict, spectrum):
         r"(?<=title=)(.+)", spec_level_info
     ).group(1)
     spec_level_dict["charge"] = re.search(r"(?<=charge=)(\d+)", spec_level_info).group()
-    spec_level_dict["raw_data_location"] = 'here'
+    spec_level_dict["raw_data_location"] = ''
     try:
         spec_level_dict["spectrum_id"] = int(re.search(
         r"(?<=title=)msmsid%3aF(\d{6})", spec_level_info
@@ -57,20 +57,20 @@ def _get_single_spec_df(reference_dict, spectrum):
     for psm in spectrum[2]:
         psm_level_dict = spec_level_dict.copy()
         psm_level_info = re.search(mascot_custom_psm_regex, psm).groupdict()
-        psm_level_dict["exp_mz"] = psm_level_info["exp_mass"]
+        psm_level_dict["exp_mass"] = psm_level_info["exp_mass"]
         psm_level_dict["mascot:num_matched_ions"] = psm_level_info["n_matched_ions"]
         psm_level_dict["sequence"] = psm_level_info["seq"]
         psm_level_dict["modifications"] = psm_level_info["opt_mod_string"]
         psm_level_dict["mascot:score"] = psm_level_info["score"]
         psm_level_dict["subst"] = psm_level_info["subst"]
-
+        psm_level_dict["query"] = query.replace("query", '')
         spec_records.append(psm_level_dict)
 
     return pd.DataFrame(spec_records)
 
 
 class Mascot_2_6_2_Parser(IdentBaseParser):
-    """File parser for MSGF+."""
+    """File parser for mascot >2.5.0."""
 
     def __init__(self, *args, **kwargs):
         """Initialize parser.
@@ -95,7 +95,7 @@ class Mascot_2_6_2_Parser(IdentBaseParser):
         self.reference_dict["search_engine"] = "mascot_" + re.search(
             r"(?<=version=).*", self.section_data["header"]
         ).group().replace(".", "_")
-        self.reference_dict["mascot:score"] = pd.NA
+        self.reference_dict["mascot:score"] = np.nan
 
     @classmethod
     def check_parser_compatibility(cls, file):
@@ -156,7 +156,6 @@ class Mascot_2_6_2_Parser(IdentBaseParser):
             psm_info["index"].str.split("_", expand=True).values
         )
         psm_info = psm_info.groupby("index")["info"].apply(list).to_dict()
-
         spectrum_info = {k: v for k, v in section_data.items() if k in psm_info}
         spectrum_data = [
             (k, v_section, psm_info[k]) for k, v_section in spectrum_info.items()
