@@ -372,7 +372,7 @@ class IdentBaseParser(BaseParser):
         target decoy generation.
         Operations are performed inplace on self.df
         """
-        decoy_tag = self.params.get("decoy_tag", "decoy_")
+        decoy_tag = self.params.get("decoy_tag", "###")
         self.df.loc[:, "is_decoy"] = self.df["protein_id"].str.contains(decoy_tag)
         if self.immutable_peptides is not None:
             auto = ahocorasick.Automaton()
