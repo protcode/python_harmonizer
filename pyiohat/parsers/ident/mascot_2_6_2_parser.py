@@ -36,22 +36,25 @@ def _get_single_spec_df(reference_dict, spectrum):
         r"(?<=title=)(.+)", spec_level_info
     ).group(1)
     spec_level_dict["charge"] = re.search(r"(?<=charge=)(\d+)", spec_level_info).group()
-    spec_level_dict["raw_data_location"] = ''
+    spec_level_dict["raw_data_location"] = ""
     try:
-        spec_level_dict["spectrum_id"] = int(re.search(
-        r"(?<=title=)msmsid%3aF(\d{6})", spec_level_info
-        ).group(1))
+        spec_level_dict["spectrum_id"] = int(
+            re.search(r"(?<=title=)msmsid%3aF(\d+)", spec_level_info).group(1)
+        )
     except AttributeError:
         spec_level_dict["spectrum_id"] = re.search(
             r"(?<=scans=)(\d+)", spec_level_info
         ).group(1)
     try:
-        spec_level_dict["retention_time_seconds"] = re.search(
-            r"(?<=title=).+start%3a(\d+%2e\d+)%2c", spec_level_info
-        ).group(1).replace("%2e", '.')
+        spec_level_dict["retention_time_seconds"] = (
+            re.search(r"(?<=title=).+start%3a(\d+%2e\d+)%2c", spec_level_info)
+            .group(1)
+            .replace("%2e", ".")
+        )
     except AttributeError:
         spec_level_dict["retention_time_seconds"] = re.search(
-        r"(?<=rtinseconds=)(\d+\.\d+)", spec_level_info).group()
+            r"(?<=rtinseconds=)(\d+\.\d+)", spec_level_info
+        ).group()
 
     # Iterate children
     for psm in spectrum[2]:
@@ -63,7 +66,7 @@ def _get_single_spec_df(reference_dict, spectrum):
         psm_level_dict["modifications"] = psm_level_info["opt_mod_string"]
         psm_level_dict["mascot:score"] = psm_level_info["score"]
         psm_level_dict["subst"] = psm_level_info["subst"]
-        psm_level_dict["query"] = query.replace("query", '')
+        psm_level_dict["query"] = query.replace("query", "")
         spec_records.append(psm_level_dict)
 
     return pd.DataFrame(spec_records)
@@ -88,6 +91,20 @@ class Mascot_2_6_2_Parser(IdentBaseParser):
             "fix": dict(
                 re.findall(
                     r"FixedMod[\d]+=[\d.]+,(\S*)\s\((\w)\)", self.section_data["masses"]
+                )
+            ),
+        }
+        self.mod_specificity = {
+            "opt": dict(
+                re.findall(
+                    r"delta([\d]+)=[\d.]+,[A-Za-z_-]+ \((.+)\)",
+                    self.section_data["masses"],
+                )
+            ),
+            "fix": dict(
+                re.findall(
+                    r"FixedMod([\d]+)=[\d.]+,[A-Za-z_-]+ \((.+)\)",
+                    self.section_data["masses"],
                 )
             ),
         }
@@ -193,8 +210,35 @@ class Mascot_2_6_2_Parser(IdentBaseParser):
         """
         fix_mods = None
         for name, aa in self.mods["fix"].items():
+            opt_mod_overlap = []
+            for k, v in self.mod_specificity["opt"].items():
+                # if the specificity of the opt mod is the same as the fix mod, add it to the list
+                if v == aa:
+                    opt_mod_overlap.append(k)
+            # this crazy long statement ensures that any modifications with specificity the same between variable and
+            # fixed are mapped to the *variable* modification and the fixed mod is not used
+
+            # value fixe_seq is just a representation of the fixed modifications in the sequence ONLY. It is later excluded
+            self.df["fix_seq"] = [
+                "".join(
+                    [
+                        aa if s == 1 else "0"
+                        for s in ((np.array(b) - np.array(a)) > 0).astype(int)
+                    ]
+                )
+                for a, b in zip(
+                    self.df["modifications"]
+                    .apply(
+                        lambda x: [1 if g in opt_mod_overlap else 0 for g in x[1:-1]]
+                    )
+                    .values,
+                    self.df["sequence"]
+                    .apply(lambda x: [1 if g == aa else 0 for g in x])
+                    .values,
+                )
+            ]
             fm_strings = (
-                self.df["sequence"]
+                self.df["fix_seq"]
                 .str.split(aa)
                 .apply(
                     lambda l: ";".join(
