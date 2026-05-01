@@ -86,7 +86,7 @@ class Mascot_2_6_2_Parser(IdentBaseParser):
         self.section_data, self.spectrum_data = self._get_data_on_spectrum_level()
         self.mods = {
             "opt": dict(
-                re.findall(r"delta([\d]+)=[\d.]+,(\S*)", self.section_data["masses"])
+                re.findall(r"delta([\d]+)=[\d.]+,(.+) \(", self.section_data["masses"])
             ),
             "fix": dict(
                 re.findall(
